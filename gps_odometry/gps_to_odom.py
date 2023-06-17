@@ -15,10 +15,9 @@ import utm
 class GPS_TO_ODOM(Node):
     def __init__(self):
         super().__init__('gps_to_odom')
-        # self.gnss_subscriber=self.create_subscription(NavSatFix,'/gnss',self.gnss_callback,10)
+
         self.gnss_subscriber=self.create_subscription(Vector3Stamped,'/filter/positionlla',self.gnss_callback,10)
         self.imu_subscriber=self.create_subscription(Imu,'/imu/data',self.imu_callback,10)
-        # self.vel_subscriber=self.create_subscription(Vector3,'/filter/velocity',self.vel_callback,10)
 
         self.odom_publisher=self.create_publisher(Odometry,'/odometry/gps',10)
         timer_period=0.25
@@ -28,6 +27,7 @@ class GPS_TO_ODOM(Node):
         self.j=0
 
         self.wait_for_fix=0
+        self.wait_for_fix_time=250
 
         self.gnss=None
         self.utm=None
@@ -38,22 +38,6 @@ class GPS_TO_ODOM(Node):
         self.orientation=None
         self.utm=None
         self.initial_utm=None
-        
-
-    # def gnss_callback(self,gnss):
-    #     self.gnss=NavSatFix()  
-    #     self.gnss=gnss
-
-    #     if self.wait_for_fix>=10:        
-    #         latitude=gnss.latitude
-    #         longitude=gnss.longitude
-
-            # if self.j==0:
-            #     self.temp_utm=self.utm=utm.from_latlon(latitude,longitude)
-            #     self.j=1
-
-            # self.initial_utm=self.temp_utm
-            # self.utm=utm.from_latlon(latitude,longitude)
 
     def gnss_callback(self,gnss):
         latitude=gnss.vector.x
@@ -63,8 +47,8 @@ class GPS_TO_ODOM(Node):
             self.temp_utm=utm.from_latlon(latitude,longitude)
             self.j=1
 
-            self.initial_utm=self.temp_utm
-            self.utm=utm.from_latlon(latitude,longitude)
+        self.initial_utm=self.temp_utm
+        self.utm=utm.from_latlon(latitude,longitude)
 
     def imu_callback(self,imu):
         orientation=imu.orientation
@@ -83,9 +67,6 @@ class GPS_TO_ODOM(Node):
         self.yaw=math.atan2(siny_cosp, cosy_cosp)
         self.orientation=orientation
         self.angular_velocity=round(imu.angular_velocity.z,4)
-
-    # def vel_callback(self,vector_vel):
-    #     self.linear_vel=vector_vel/math.cos(self.yaw)
 
     def pose(self):
 
@@ -107,32 +88,24 @@ class GPS_TO_ODOM(Node):
         print("yaw=", self.yaw)
 
         print(self.wait_for_fix)
-        if self.wait_for_fix<1000:
+        if self.wait_for_fix<(self.wait_for_fix_time*4):
             self.wait_for_fix+=1
 
-        elif self.gnss!=None:
-            if self.initial_utm!=None:
-                coordinates=self.pose()
-                x=coordinates[0]
-                y=coordinates[1]
 
-                # print("initial_x=", self.initial_utm)
-                # print("final_x=", self.utm)
+        elif self.initial_utm!=None:
+            coordinates=self.pose()
+            x=coordinates[0]
+            y=coordinates[1]
 
-                print(coordinates)
+            print(coordinates)
 
-                pose.position.x=x
-                pose.position.y=y
-                odom.pose.pose=pose
+            pose.position.x=x
+            pose.position.y=y
+            odom.pose.pose=pose
 
-                # odom.twist.twist.angular.z=self.angular_velocity
-                # print("angular velocity: ",self.angular_velocity)
-                # odom.twist.twist.linear.x=self.linear_vel
-                # print("linear velocity: ",self.linear_vel)
-
-                odom.child_frame_id="imu_link"
-                odom.header.frame_id="odom"
-                self.odom_publisher.publish(odom)
+            odom.child_frame_id="imu_link"
+            odom.header.frame_id="odom"
+            self.odom_publisher.publish(odom)
 
 
 def main(args=None):
