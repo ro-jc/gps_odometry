@@ -50,7 +50,7 @@ class GPS_TO_ODOM(Node):
         odom=Odometry()
         pose=Pose()
 
-        if(gnss.position_covariance[0]<1.0 and gnss.position_covariance[4]<1.0 and self.i==1):
+        if(gnss.position_covariance[0]<2.0 and gnss.position_covariance[4]<2.0 and self.i==1):
             coordinates=self.pose()
             x=coordinates[0]
             y=coordinates[1]
