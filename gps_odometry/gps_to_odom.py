@@ -23,6 +23,11 @@ class GPS_TO_ODOM(Node):
 
         self.rotation=None
 
+        self.x_prev=0
+        self.y_prev=0
+
+        self.x_now=0
+        self.y_now=0
         
         self.initial_yaw=0.0
 
@@ -82,8 +87,15 @@ class GPS_TO_ODOM(Node):
 
         temp_coordinates = self.rotation @ np.array([[self.utm[0]],[self.utm[1]]])
 
-        x = (temp_coordinates-initial_coordinates)[0,0]
-        y = (temp_coordinates-initial_coordinates)[1,0]
+        self.x_now = (temp_coordinates-initial_coordinates)[0,0]
+        self.y_now = (temp_coordinates-initial_coordinates)[1,0]
+
+        x=0.5*self.x_now+0.5*self.y_now
+        y=0.5*self.x_now+0.5*self.y_now
+
+        self.x_prev=self.x_now
+        self.y_prev=self.y_now
+
         coordinates = [x,y]
         return coordinates
 
