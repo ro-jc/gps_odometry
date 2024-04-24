@@ -20,15 +20,10 @@ class GPS_TO_ODOM(Node):
         self.imu_subscriber=self.create_subscription(QuaternionStamped,'/filter/quaternion',self.imu_callback,10)
 
         self.odom_publisher=self.create_publisher(Odometry,'/odometry/gps',10)
+        self.initial_covariance=None
 
         self.rotation=None
 
-        self.x_prev=0
-        self.y_prev=0
-
-        self.x_now=0
-        self.y_now=0
-        
         self.initial_yaw=0.0
 
         self.i=0
@@ -40,17 +35,17 @@ class GPS_TO_ODOM(Node):
         latitude=gnss.latitude
         longitude=gnss.longitude
 
-        if self.j==0:
-            self.initial_utm=utm.from_latlon(latitude,longitude)
-            self.j=1
-
-        
-        self.utm=utm.from_latlon(latitude,longitude)
-
         odom=Odometry()
         pose=Pose()
 
-        if(gnss.position_covariance[0]<2.0 and gnss.position_covariance[4]<2.0 and self.i==1):
+        if(self.i==1):
+            if self.j==0:
+                self.initial_utm=utm.from_latlon(latitude,longitude)
+                self.initial_covariance=self.rotation @ np.array([[gnss.position_covariance[0],0.0],[0.0,gnss.position_covariance[4]]]) @ self.rotation.T 
+                self.j=1
+
+            self.utm=utm.from_latlon(latitude,longitude)
+
             coordinates=self.pose()
             x=coordinates[0]
             y=coordinates[1]
@@ -61,8 +56,8 @@ class GPS_TO_ODOM(Node):
             pose.position.y=y
             odom.pose.pose=pose
 
-            odom.pose.covariance[0]=(self.rotation @ np.array([[gnss.position_covariance[0],0.0],[0.0,gnss.position_covariance[4]]]) @ self.rotation.T)[0,0]
-            odom.pose.covariance[7]=(self.rotation @ np.array([[gnss.position_covariance[0],0.0],[0.0,gnss.position_covariance[4]]]) @ self.rotation.T)[1,1]
+            odom.pose.covariance[0]=(self.rotation @ np.array([[gnss.position_covariance[0],0.0],[0.0,gnss.position_covariance[4]]]) @ self.rotation.T  + self.initial_covariance)[0,0]
+            odom.pose.covariance[7]=(self.rotation @ np.array([[gnss.position_covariance[0],0.0],[0.0,gnss.position_covariance[4]]]) @ self.rotation.T + self.initial_covariance)[1,1]
 
 
             odom.child_frame_id="imu_link"
@@ -87,14 +82,8 @@ class GPS_TO_ODOM(Node):
 
         temp_coordinates = self.rotation @ np.array([[self.utm[0]],[self.utm[1]]])
 
-        self.x_now = (temp_coordinates-initial_coordinates)[0,0]
-        self.y_now = (temp_coordinates-initial_coordinates)[1,0]
-
-        x=0.5*self.x_now+0.5*self.y_now
-        y=0.5*self.x_now+0.5*self.y_now
-
-        self.x_prev=self.x_now
-        self.y_prev=self.y_now
+        x = (temp_coordinates-initial_coordinates)[0,0]
+        y = (temp_coordinates-initial_coordinates)[1,0]
 
         coordinates = [x,y]
         return coordinates
